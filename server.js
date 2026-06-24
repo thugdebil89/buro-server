@@ -14,21 +14,23 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// 🚀 RUTĂ UNIVERSALĂ CATCH-ALL (Returnează JSON codat în Base64)
-app.use(async (req, res) => {
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+// Pagina principală simplă (pentru a evita erorile de test în browser)
+app.get('/', (req, res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.status(200).send("Serverul Buro Decoder rulează activ în Cloud Render!");
+});
 
-    if (req.method !== 'POST') {
-        return res.status(200).json({ status: "live" });
-    }
+// 🚀 RUTA OFICIALĂ DE PRIMIRE POZE (Corectează eroarea 405)
+app.post('/upload', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
     try {
         const { base64Image } = req.body;
         if (!base64Image) {
-            return res.status(400).json({ error: "No image" });
+            return res.status(400).json({ error: "Nu s-a primit nicio imagine." });
         }
 
-        console.log("📬 Imagine primită! Se trimite către Groq...");
+        console.log("📬 Imagine primită în Cloud! Se trimite către Groq...");
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
@@ -48,7 +50,6 @@ app.use(async (req, res) => {
                     ]
                 }
             ],
-            // 🚀 Actualizat la modelul vizual oficial stabil
             model: "meta-llama/llama-4-scout-17b-16e-instruct",
             temperature: 0.1,
             max_tokens: 1024
@@ -58,8 +59,7 @@ app.use(async (req, res) => {
             const textRezultat = chatCompletion.choices[0].message.content;
             console.log("✅ Document procesat cu succes!");
             
-            // 🚀 TRUCUL ANTI-406: Transformăm tot textul românesc în cod Base64 simplu.
-            // Operatorii GSM/5G vor vedea doar litere simple și nu vor mai bloca nimic!
+            // Mascăm textul în Base64 pentru a ocoli filtrele mobile 406
             const textSecurizatBase64 = Buffer.from(textRezultat, 'utf-8').toString('base64');
             return res.status(200).json({ dateCriptate: textSecurizatBase64 });
         } else {
@@ -69,7 +69,7 @@ app.use(async (req, res) => {
 
     } catch (error) {
         console.error("❌ Eroare server:", error.message);
-        const eroareServer = Buffer.from("Eroare server: " + error.message, 'utf-8').toString('base64');
+        const eroareServer = Buffer.from("Eroare la serverul Groq: " + error.message, 'utf-8').toString('base64');
         return res.status(500).json({ dateCriptate: eroareServer });
     }
 });
