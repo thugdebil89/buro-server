@@ -10,22 +10,23 @@ const apiKeyFinal = process.env.GROQ_API_KEY || backupKey;
 const groq = new Groq({ apiKey: apiKeyFinal });
 
 app.use(cors());
+// Mărim limitele la maximum pentru Vercel Serverless
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Pagina principală simplă
-app.get('/', (req, res) => {
-    res.status(200).send("Serverul Buro Decoder rulează activ pe Vercel!");
-});
-
-// Ruta oficială de upload pe care o strigă telefonul
-app.post('/upload', async (req, res) => {
+// 🚀 SCHIMBARE CRITICĂ: Acceptăm cererea pe orice rută trimite telefonul (catch-all)
+app.all('*', async (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+    // Dacă este doar o accesare simplă din browser (GET), confirmăm că funcționează
+    if (req.method !== 'POST') {
+        return res.status(200).json({ rezultat: "Serverul Buro Decoder rulează activ pe Vercel!" });
+    }
 
     try {
         const { base64Image } = req.body;
         if (!base64Image) {
-            return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine." });
+            return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine în cloud." });
         }
 
         console.log("📬 Imagine primită în Vercel! Se trimite către Groq...");
@@ -48,23 +49,21 @@ app.post('/upload', async (req, res) => {
                     ]
                 }
             ],
-            // Modelul stabil setat de tine
             model: "meta-llama/llama-4-scout-17b-16e-instruct",
             temperature: 0.1,
             max_tokens: 1024
         });
 
-        // 🚀 REZOLVARE EROARE SERVER: Verificare clasică și sigură a structurii răspunsului
         if (chatCompletion && chatCompletion.choices && chatCompletion.choices[0] && chatCompletion.choices[0].message) {
             const textRezultat = chatCompletion.choices[0].message.content;
             return res.status(200).json({ rezultat: textRezultat });
         } else {
-            return res.status(200).json({ rezultat: "Groq a răspuns, dar nu a putut genera textul tradus." });
+            return res.status(200).json({ rezultat: "Groq nu a putut returna o analiză validă." });
         }
 
     } catch (error) {
         console.error("❌ Eroare server:", error.message);
-        return res.status(500).json({ rezultat: "Eroare la procesarea serverului: " + error.message });
+        return res.status(500).json({ rezultat: "Eroare server Cloud Vercel: " + error.message });
     }
 });
 
