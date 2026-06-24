@@ -4,23 +4,25 @@ const cors = require('cors');
 const Groq = require('groq-sdk');
 
 const app = express();
-// Railway sau orice server online își va pune singur portul aici
 const PORT = process.env.PORT || 3000;
 
-const backupKey = ["gsk", "x8xLB9yOoYsPEmKCgfdNWGdyb3FYIEVQzS8ZqI8Yeq1PY7s0Q661"].join('_');
+// Folosim direct cheia ta funcțională ca backup direct în cod ca să fim siguri că nu e de la .env
+const backupKey = "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";
 const apiKeyFinal = process.env.GROQ_API_KEY || backupKey;
 const groq = new Groq({ apiKey: apiKeyFinal });
 
 app.use(cors());
-// Permitem pachete uriașe de imagini prin rețeaua mobilă, fără limită
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.post('/upload', async (req, res) => {
+    // Forțăm întotdeauna răspuns de tip JSON ca să distrugem definitiv eroarea DOCTYPE HTML pe telefon
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
     try {
         const { base64Image } = req.body;
         if (!base64Image) {
-            return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine." });
+            return res.status(200).json({ rezultat: "Eroare: Telefonul a trimis un pachet gol (fără imagine)." });
         }
 
         console.log("📬 Imagine primită în Cloud! Se trimite către Groq...");
@@ -43,6 +45,7 @@ app.post('/upload', async (req, res) => {
                     ]
                 }
             ],
+            // 🚀 Modelul vizual stabil și rapid garantat de Groq
             model: "llama-3.2-11b-vision-preview",
             temperature: 0.1,
             max_tokens: 1024
@@ -50,20 +53,23 @@ app.post('/upload', async (req, res) => {
 
         if (chatCompletion && chatCompletion.choices && chatCompletion.choices[0] && chatCompletion.choices[0].message) {
             const textRezultat = chatCompletion.choices[0].message.content;
-            res.json({ rezultat: textRezultat });
+            return res.status(200).json({ rezultat: textRezultat });
         } else {
-            res.json({ rezultat: "Groq nu a putut returna o analiză validă." });
+            return res.status(200).json({ rezultat: "Eroare: Groq a procesat imaginea dar a returnat un răspuns gol." });
         }
 
     } catch (error) {
         console.error("❌ Eroare server:", error.message);
-        res.status(500).json({ rezultat: "Eroare la serverul cloud: " + error.message });
+        // Chiar dacă crapă Groq, returnăm eroarea tot ca JSON curat, eliminând eroarea DOCTYPE HTML!
+        return res.status(200).json({ 
+            rezultat: "⚠️ A crăpat conexiunea cu Groq în Cloud!\n\nMotivul exact: " + error.message + "\n\n(Dacă zice 'Unauthorized' sau 'Invalid API Key', înseamnă că trebuie să generezi o cheie nouă din contul Groq)." 
+        });
     }
 });
 
-// Ruta de bază ca să nu mai vezi niciodată DOCTYPE html în browser
 app.get('/', (req, res) => {
-    res.send("Serverul Buro Decoder rulează online 24/7!");
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.status(200).json({ rezultat: "Serverul Buro Decoder rulează online 24/7 pe Railway!" });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
