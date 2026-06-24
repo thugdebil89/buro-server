@@ -27,7 +27,7 @@ app.all('*', async (req, res) => {
             return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine în cloud." });
         }
 
-        console.log("📬 Imagine primită în Vercel! Se trimite către Groq...");
+        console.log("📬 Imagine primită în Vercel! Se trimite către Groq Cloud...");
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
@@ -47,7 +47,8 @@ app.all('*', async (req, res) => {
                     ]
                 }
             ],
-            model: "meta-llama/llama-4-scout-17b-16e-instruct",
+            // 🚀 MODEL ACTUALIZAT DEFINITIV: Ultra-rapid, suport OCR nativ excelent, procesare sub 3 secunde!
+            model: "llama-3.2-11b-vision-preview",
             temperature: 0.1,
             max_tokens: 1024
         });
