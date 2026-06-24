@@ -5,23 +5,28 @@ const apiKeyFinal = process.env.GROQ_API_KEY || backupKey;
 const groq = new Groq({ apiKey: apiKeyFinal });
 
 module.exports = async function handler(req, res) {
-    // Permisiuni CORS pentru conexiuni mobile mobile 5G
+    // 🚀 PERMISIUNI COMPLETE CORS (Ocolește blocajele de rețea 5G)
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
+    // Răspuns rapid pentru verificările automate ale rețelei (Preflight)
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
+    // Dacă este o accesare simplă din browser (GET), confirmăm funcționarea
     if (req.method !== 'POST') {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         return res.status(200).json({ rezultat: "Serverul Buro Decoder rulează activ pe Vercel!" });
     }
 
     try {
-        // Citim direct body-ul (deoarece pachetul trimis va fi foarte mic)
+        // Citim corect corpul cererii JSON în sistemul Serverless
         let body = req.body;
         if (typeof body === 'string') {
             body = JSON.parse(body);
@@ -29,10 +34,11 @@ module.exports = async function handler(req, res) {
 
         const base64Image = body ? body.base64Image : null;
         if (!base64Image) {
-            return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine validă în cloud." });
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine în cloud." });
         }
 
-        // Apel ultra-rapid către modelul Groq Vision
+        // Apel ultra-rapid către modelul Groq Vision oficial stabil
         const chatCompletion = await groq.chat.completions.create({
             messages: [
                 {
@@ -61,12 +67,13 @@ module.exports = async function handler(req, res) {
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             return res.status(200).json({ rezultat: textRezultat });
         } else {
-            return res.status(200).json({ rezultat: "Groq nu a putut genera o analiză validă." });
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            return res.status(200).json({ rezultat: "Groq nu a putut returna o analiză validă." });
         }
 
     } catch (error) {
         console.error("❌ Eroare server:", error.message);
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        return res.status(500).json({ rezultat: "Eroare la procesarea serverului: " + error.message });
+        return res.status(500).json({ rezultat: "Eroare la procesarea serverului cloud: " + error.message });
     }
 };
