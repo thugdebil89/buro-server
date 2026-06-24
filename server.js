@@ -6,26 +6,29 @@ const Groq = require('groq-sdk');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Cod de siguranță: dacă fișierul .env nu este citit corect de Windows, serverul folosește cheia de rezervă securizată prin bucăți
 const backupKey = ["gsk", "x8xLB9yOoYsPEmKCgfdNWGdyb3FYIEVQzS8ZqI8Yeq1PY7s0Q661"].join('_');
 const apiKeyFinal = process.env.GROQ_API_KEY || backupKey;
-
-// Inițializare cu cheia sigură
 const groq = new Groq({ apiKey: apiKeyFinal });
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.post('/upload', async (req, res) => {
+// 🚀 RUTĂ UNIVERSALĂ (Acceptă POST pe /upload, pe / și pe orice altă combinație)
+app.use(async (req, res) => {
+    // Permite doar cererile de tip POST pentru procesare
+    if (req.method !== 'POST') {
+        return res.status(200).send("Serverul Buro Decoder rulează activ în Cloud!");
+    }
+
     try {
         const { base64Image } = req.body;
         if (!base64Image) {
-            console.log("❌ Serverul a primit o cerere goală.");
+            console.log("❌ Cerere goală primită.");
             return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine." });
         }
 
-        console.log("📬 Imagine primită în server! Se trimite către Groq Cloud...");
+        console.log("📬 Imagine primită în Cloud! Se trimite către Groq...");
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
@@ -50,22 +53,22 @@ app.post('/upload', async (req, res) => {
             max_tokens: 1024
         });
 
-        if (chatCompletion && chatCompletion.choices && chatCompletion.choices[0] && chatCompletion.choices[0].message) {
+        if (chatCompletion?.choices?.[0]?.message?.content) {
             const textRezultat = chatCompletion.choices[0].message.content;
-            console.log("✅ Document procesat cu succes de Groq Cloud!");
+            console.log("✅ Document procesat cu succes!");
             res.json({ rezultat: textRezultat });
         } else {
-            console.log("⚠️ Groq a răspuns dar structura textului este goală.");
+            console.log("⚠️ Structură răspuns goală.");
             res.json({ rezultat: "Groq nu a putut returna o analiză validă pentru acest document." });
         }
 
     } catch (error) {
-        console.error("❌ Eroare internă la procesarea Groq:", error.message);
+        console.error("❌ Eroare:", error.message);
         res.status(500).json({ rezultat: "Eroare la serverul Groq: " + error.message });
     }
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Serverul Buro rulează activ pe portul ${PORT}!`);
+    console.log(`🚀 Serverul rulează pe portul ${PORT}`);
 });
 
