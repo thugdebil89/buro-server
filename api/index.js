@@ -1,23 +1,27 @@
-require('dotenv').config(); 
-const express = require('express');
-const cors = require('cors');
 const Groq = require('groq-sdk');
-
-const app = express();
 
 const backupKey = ["gsk", "x8xLB9yOoYsPEmKCgfdNWGdyb3FYIEVQzS8ZqI8Yeq1PY7s0Q661"].join('_');
 const apiKeyFinal = process.env.GROQ_API_KEY || backupKey;
 const groq = new Groq({ apiKey: apiKeyFinal });
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+module.exports = async function handler(req, res) {
+    // 🚀 REZOLVARE CORS (Elimină erorile 405 și 406 pe rețelele mobile)
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
-// Răspuns direct pe ruta principală a funcției /api
-app.all('*', async (req, res) => {
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    // Răspuns rapid pentru verificarea conexiunii (Preflight)
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
 
+    // Dacă este o accesare simplă din browser (GET), confirmăm funcționarea (Elimină eroarea 500)
     if (req.method !== 'POST') {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
         return res.status(200).json({ rezultat: "Serverul Buro Decoder rulează activ pe Vercel!" });
     }
 
@@ -26,8 +30,6 @@ app.all('*', async (req, res) => {
         if (!base64Image) {
             return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine în cloud." });
         }
-
-        console.log("📬 Imagine primită în Vercel! Se trimite către Groq Cloud...");
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
@@ -47,7 +49,6 @@ app.all('*', async (req, res) => {
                     ]
                 }
             ],
-            // 🚀 MODEL ACTUALIZAT DEFINITIV: Ultra-rapid, suport OCR nativ excelent, procesare sub 3 secunde!
             model: "llama-3.2-11b-vision-preview",
             temperature: 0.1,
             max_tokens: 1024
@@ -62,8 +63,6 @@ app.all('*', async (req, res) => {
 
     } catch (error) {
         console.error("❌ Eroare server:", error.message);
-        return res.status(500).json({ rezultat: "Eroare server Cloud Vercel: " + error.message });
+        return res.status(500).json({ rezultat: "Eroare la procesarea serverului: " + error.message });
     }
-});
-
-module.exports = app;
+};
