@@ -1,6 +1,5 @@
 const Groq = require('groq-sdk');
 
-// Inițializare securizată cu cheia ta privată
 const backupKey = ["gsk", "x8xLB9yOoYsPEmKCgfdNWGdyb3FYIEVQzS8ZqI8Yeq1PY7s0Q661"].join('_');
 const apiKeyFinal = process.env.GROQ_API_KEY || backupKey;
 const groq = new Groq({ apiKey: apiKeyFinal });
@@ -20,22 +19,31 @@ module.exports = async function handler(req, res) {
         return res.status(200).end();
     }
 
-    // Dacă accesezi link-ul din browser (GET), confirmăm funcționarea și oprim eroarea 500
+    // Dacă este o accesare simplă din browser (GET), confirmăm funcționarea (Elimină eroarea 500)
     if (req.method !== 'POST') {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         return res.status(200).json({ rezultat: "Serverul Buro Decoder rulează activ pe Vercel!" });
     }
 
     try {
-        // În structura nativă Vercel, dacă req.body nu e parsat automat, îl citim direct
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const base64Image = body?.base64Image;
-
-        if (!base64Image) {
-            return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine validă în cloud." });
+        // 🚀 TRUCUL CRITIC PENTRU VERCEL: Citirea forțată a corpului cererii JSON pentru imagini mari Base64
+        let body = req.body;
+        if (typeof body === 'string') {
+            try {
+                body = JSON.parse(body);
+            } catch (e) {
+                console.error("Eroare la parsarea string-ului din body");
+            }
         }
 
-        console.log("📬 Imagine recepționată cu succes în Vercel! Se trimite către Groq...");
+        const base64Image = body ? body.base64Image : null;
+
+        if (!base64Image) {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            return res.status(400).json({ rezultat: "Nu s-a primit nicio imagine în cloud." });
+        }
+
+        console.log("📬 Imagine primită în Vercel! Se trimite către Groq Cloud...");
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
@@ -55,23 +63,24 @@ module.exports = async function handler(req, res) {
                     ]
                 }
             ],
-            // Modelul vizual ultra-rapid recomandat de Groq pentru OCR și imagini
             model: "llama-3.2-11b-vision-preview",
             temperature: 0.1,
             max_tokens: 1024
         });
 
-        if (chatCompletion?.choices?.[0]?.message?.content) {
+        // 🚀 CONFIGURARE CORECTĂ ȘI SIGURĂ A CITIRII TEXTULUI (Masivul choices[0])
+        if (chatCompletion && chatCompletion.choices && chatCompletion.choices[0] && chatCompletion.choices[0].message) {
             const textRezultat = chatCompletion.choices[0].message.content;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             return res.status(200).json({ rezultat: textRezultat });
         } else {
-            return res.status(200).json({ rezultat: "Groq nu a putut returna o analiză validă pentru acest document." });
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            return res.status(200).json({ rezultat: "Groq nu a putut returna o analiză validă." });
         }
 
     } catch (error) {
         console.error("❌ Eroare server:", error.message);
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        return res.status(500).json({ rezultat: "Eroare la procesarea Groq Cloud: " + error.message });
+        return res.status(500).json({ rezultat: "Eroare la procesarea serverului cloud: " + error.message });
     }
 };
