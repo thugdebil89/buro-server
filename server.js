@@ -14,20 +14,18 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// 🚀 RUTĂ UNIVERSALĂ OPTIMIZATĂ ANTI-406 (Returnează TEXT SIMPLU formatat UTF-8)
+// 🚀 RUTĂ UNIVERSALĂ CATCH-ALL (Returnează JSON codat în Base64)
 app.use(async (req, res) => {
-    // Forțăm antetul de TEXT SIMPLU pentru a fenta blocajele operatorilor de telefonie mobilă
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
     if (req.method !== 'POST') {
-        return res.status(200).send("Serverul Buro Decoder rulează activ în Cloud!");
+        return res.status(200).json({ status: "live" });
     }
 
     try {
         const { base64Image } = req.body;
         if (!base64Image) {
-            console.log("❌ Serverul a primit o cerere goală.");
-            return res.status(400).send("Nu s-a primit nicio imagine.");
+            return res.status(400).json({ error: "No image" });
         }
 
         console.log("📬 Imagine primită! Se trimite către Groq...");
@@ -50,6 +48,7 @@ app.use(async (req, res) => {
                     ]
                 }
             ],
+            // 🚀 Actualizat la modelul vizual oficial stabil
             model: "meta-llama/llama-4-scout-17b-16e-instruct",
             temperature: 0.1,
             max_tokens: 1024
@@ -58,16 +57,20 @@ app.use(async (req, res) => {
         if (chatCompletion && chatCompletion.choices && chatCompletion.choices[0] && chatCompletion.choices[0].message) {
             const textRezultat = chatCompletion.choices[0].message.content;
             console.log("✅ Document procesat cu succes!");
-            // Trimitem doar textul curat, fără JSON, eliminând eroarea 406
-            return res.status(200).send(textRezultat);
+            
+            // 🚀 TRUCUL ANTI-406: Transformăm tot textul românesc în cod Base64 simplu.
+            // Operatorii GSM/5G vor vedea doar litere simple și nu vor mai bloca nimic!
+            const textSecurizatBase64 = Buffer.from(textRezultat, 'utf-8').toString('base64');
+            return res.status(200).json({ dateCriptate: textSecurizatBase64 });
         } else {
-            console.log("⚠️ Groq a răspuns gol.");
-            return res.status(200).send("Groq nu a putut returna o analiză validă pentru acest document.");
+            const eroareGola = Buffer.from("Groq a trimis un răspuns gol.", 'utf-8').toString('base64');
+            return res.status(200).json({ dateCriptate: eroareGola });
         }
 
     } catch (error) {
         console.error("❌ Eroare server:", error.message);
-        return res.status(500).send("Eroare la serverul Groq: " + error.message);
+        const eroareServer = Buffer.from("Eroare server: " + error.message, 'utf-8').toString('base64');
+        return res.status(500).json({ dateCriptate: eroareServer });
     }
 });
 
